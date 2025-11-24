@@ -1,9 +1,9 @@
 name: China IP list
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:   # 手动触发
   schedule:
-    - cron: 0 0 * * *
+    - cron: "0 0 * * *"   # 每天 0 点定时触发
 
 jobs:
   build:
@@ -17,24 +17,28 @@ jobs:
         fetch-depth: 0
 
     - name: Set git identity
-      run : |
+      run: |
         git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git config --global user.name "github-actions[bot]"
         sudo timedatectl set-timezone "Asia/Shanghai"
 
-    - name: Combine
+    - name: Combine China IP lists
       run: |
-        qqwry="$(curl -kLfsm 5 https://raw.githubusercontent.com/metowolf/iplist/master/data/special/china.txt)"
-        ipipnet="$(curl -kLfsm 5 https://raw.githubusercontent.com/17mon/china_ip_list/master/china_ip_list.txt)"
-        clang="$(curl -kLfsm 5 https://ispip.clang.cn/all_cn.txt)"
-        gaoyifan="$(curl -kLfsm 5 https://raw.githubusercontent.com/gaoyifan/china-operator-ip/ip-lists/china.txt)"
-        soffchen="$(curl -kLfsm 5 https://raw.githubusercontent.com/soffchen/china-ip-list/master/china.txt)"
-        iplist="$qqwry\n$ipipnet\n$clang\n$gaoyifan\n$soffchen"
-        echo -e "${iplist}" | sort | uniq > china_ip_list.txt
+        qqwry="$(curl -kLfsm 5 https://raw.githubusercontent.com/metowolf/iplist/master/data/special/china.txt || true)"
+        ipipnet="$(curl -kLfsm 5 https://raw.githubusercontent.com/17mon/china_ip_list/master/china_ip_list.txt || true)"
+        clang="$(curl -kLfsm 5 https://ispip.clang.cn/all_cn.txt || true)"
+        gaoyifan="$(curl -kLfsm 5 https://raw.githubusercontent.com/gaoyifan/china-operator-ip/ip-lists/china.txt || true)"
+        chnroute="$(curl -kLfsm 5 https://raw.githubusercontent.com/mayaxcn/china-ip-list/master/chnroute.txt || true)"
+        chnroute_v6="$(curl -kLfsm 5 https://raw.githubusercontent.com/mayaxcn/china-ip-list/master/chnroute_v6.txt || true)"
 
-    - name: Apply
+        iplist="$(printf "%s\n%s\n%s\n%s\n%s\n%s" "$qqwry" "$ipipnet" "$clang" "$gaoyifan" "$chnroute" "$chnroute_v6")"
+
+        # 过滤空行 + 数值排序 + 去重
+        echo "$iplist" | grep -E '.' | sort -n -t . -k1,1 -k2,2 -k3,3 -k4,4 | uniq > china_ip_list.txt
+
+    - name: Commit and Push
       run: |
         Emoji=("🎉" "🤞" "✨" "🎁" "🎈" "🎄" "🎨" "💋" "🍓" "🍕" "🍉" "💐" "🌴" "🚀" "🛸" "🗽" "⛅" "🌈" "🔥" "⛄" "🐶" "🏅" "🦄" "🐤")
-        git add .
-        git commit -m "${Emoji[$[$RANDOM % ${#Emoji[@]}]]} Sync $(date +%Y-%m-%d" "%H:%M:%S)"
-        git push -f
+        git add china_ip_list.txt
+        git commit -m "${Emoji[$[$RANDOM % ${#Emoji[@]}]]} Sync China IP list $(date +%Y-%m-%d" "%H:%M:%S)"
+        git push
